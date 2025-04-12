@@ -1,0 +1,670 @@
+--===========================================--
+--          极速自瞄脚本 v3.0 (终极豪华版)  --
+--  特点：智能锁头/动态预判/可视化追踪      --
+--          GUI控制/电影级特效/流畅动画      --
+--          开发者：@断桥残雪               --
+--===========================================--
+
+-- 🔧 高级配置区 --
+getgenv().Settings = {
+    -- 🎯 核心设置
+    AimPart = "Head",          -- 默认瞄准部位
+    OldAimPart = "Head",       -- 备用瞄准部位
+    AimlockKey = Enum.UserInputType.MouseButton2,
+    AimRadius = 80,            -- 锁定范围(像素)
+    TeamCheck = false,         -- 是否忽略队友
+    CheckIfJumped = true,      -- 跳跃时自动锁头
+    DrawFOV = true,            -- 显示瞄准范围
+    FOVVisible = true,         -- FOV可见性
+    
+    -- 🚀 速度控制系统
+    Speed = {
+        Base = 2.5,            -- 基础速度
+        CloseBoost = 0.4,      -- 近距离加速
+        FarReduce = 0.25,      -- 远距离减速 
+        Min = 1.5,             -- 最低速度
+        Max = 5.0              -- 最高速度
+    },
+    
+    -- 📈 预判系统
+    Prediction = {
+        Base = 4.0,            -- 基础预判值
+        Min = 2.5,             -- 最小预判值
+        DistanceFactor = 250   -- 距离影响系数
+    }
+}
+
+-- 🛠️ 初始化服务 --
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Client = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = Client:GetMouse()
+
+-- 🎨 创建顶级GUI --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AimlockPremiumUI"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.ResetOnSpawn = false
+
+-- 💎 豪华水印系统 --
+local Watermark = Instance.new("Frame")
+Watermark.Name = "PremiumWatermark"
+Watermark.Size = UDim2.new(0, 220, 0, 45)
+Watermark.Position = UDim2.new(1, -230, 1, -50)
+Watermark.AnchorPoint = Vector2.new(1, 1)
+Watermark.BackgroundColor3 = Color3.fromRGB(30, 5, 50)
+Watermark.BackgroundTransparency = 0.3
+Watermark.Parent = ScreenGui
+
+local WatermarkCorner = Instance.new("UICorner")
+WatermarkCorner.CornerRadius = UDim.new(0, 14)
+WatermarkCorner.Parent = Watermark
+
+local WatermarkStroke = Instance.new("UIStroke")
+WatermarkStroke.Color = Color3.fromRGB(180, 80, 255)
+WatermarkStroke.Thickness = 2
+WatermarkStroke.Transparency = 0.5
+WatermarkStroke.Parent = Watermark
+
+local WatermarkText = Instance.new("TextLabel")
+WatermarkText.Size = UDim2.new(0.9, 0, 0.8, 0)
+WatermarkText.Position = UDim2.new(0.5, 0, 0.5, 0)
+WatermarkText.AnchorPoint = Vector2.new(0.5, 0.5)
+WatermarkText.BackgroundTransparency = 1
+WatermarkText.Text = "@断桥残雪 AIMLOCKNB666"
+WatermarkText.TextColor3 = Color3.fromRGB(230, 190, 255)
+WatermarkText.Font = Enum.Font.GothamBlack
+WatermarkText.TextSize = 16
+WatermarkText.TextXAlignment = Enum.TextXAlignment.Right
+WatermarkText.ZIndex = 2
+WatermarkText.Parent = Watermark
+-- 水印 (屏幕右下角大字体版本)
+local synb666 = Instance.new("TextLabel")
+synb666.Name = "synb666"
+synb666.Size = UDim2.new(0, 180, 0, 30)  -- 增大尺寸
+synb666.Position = UDim2.new(1, -185, 1, -35)  -- 右下角定位
+synb666.AnchorPoint = Vector2.new(1, 1)  -- 锚点确保始终在右下角
+synb666.BackgroundTransparency = 1
+synb666.Text = "@断桥残雪"
+synb666.TextColor3 = Color3.fromRGB(200, 150, 255)
+synb666.Font = Enum.Font.GothamBold  -- 改为粗体
+synb666.TextSize = 16  -- 增大字号
+synb666.TextXAlignment = Enum.TextXAlignment.Right
+synb666.ZIndex = 10  -- 确保在最上层
+synb666.Parent = MainFrame
+
+-- 添加文字阴影效果
+local TextShadow = Instance.new("TextLabel")
+TextShadow.Name = "TextShadow"
+TextShadow.Size = synb666.Size
+TextShadow.Position = synb666.Position
+TextShadow.AnchorPoint = synb666.AnchorPoint
+TextShadow.BackgroundTransparency = 1
+TextShadow.Text = synb666.Text
+TextShadow.TextColor3 = Color3.fromRGB(0, 0, 0)
+TextShadow.Font = synb666.Font
+TextShadow.TextSize = synb666.TextSize
+TextShadow.TextXAlignment = synb666.TextXAlignment
+TextShadow.ZIndex = synb666.ZIndex - 1
+TextShadow.Parent = MainFrame
+TextShadow.Position = UDim2.new(synb666.Position.X.Scale, synb666.Position.X.Offset + 2, 
+                               synb666.Position.Y.Scale, synb666.Position.Y.Offset + 2)
+
+
+-- ✨ 电影级通知系统 --
+local function ShowCinematicNotification(title, message, duration)
+    local Notification = Instance.new("Frame")
+    Notification.Name = "CinematicNotification"
+    Notification.Size = UDim2.new(0, 300, 0, 80)
+    Notification.Position = UDim2.new(1, -310, 1, -150)
+    Notification.AnchorPoint = Vector2.new(1, 1)
+    Notification.BackgroundColor3 = Color3.fromRGB(20, 0, 40)
+    Notification.BackgroundTransparency = 1
+    Notification.ClipsDescendants = true
+    Notification.Parent = ScreenGui
+    
+    local NotificationCorner = Instance.new("UICorner")
+    NotificationCorner.CornerRadius = UDim.new(0, 12)
+    NotificationCorner.Parent = Notification
+    
+    local NotificationStroke = Instance.new("UIStroke")
+    NotificationStroke.Color = Color3.fromRGB(180, 80, 255)
+    NotificationStroke.Thickness = 2
+    NotificationStroke.Transparency = 0.5
+    NotificationStroke.Parent = Notification
+    
+    local GlowEffect = Instance.new("ImageLabel")
+    GlowEffect.Name = "GlowEffect"
+    GlowEffect.Size = UDim2.new(1, 20, 1, 20)
+    GlowEffect.Position = UDim2.new(0.5, -10, 0.5, -10)
+    GlowEffect.AnchorPoint = Vector2.new(0.5, 0.5)
+    GlowEffect.BackgroundTransparency = 1
+    GlowEffect.Image = "rbxassetid://5028857084"  -- 发光效果
+    GlowEffect.ImageColor3 = Color3.fromRGB(80, 0, 120)
+    GlowEffect.ScaleType = Enum.ScaleType.Slice
+    GlowEffect.SliceCenter = Rect.new(100, 100, 100, 100)
+    GlowEffect.Parent = Notification
+    
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(0.9, 0, 0.3, 0)
+    TitleLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = title
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 180, 255)
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextSize = 16
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = Notification
+    
+    local MessageLabel = Instance.new("TextLabel")
+    MessageLabel.Size = UDim2.new(0.9, 0, 0.5, 0)
+    MessageLabel.Position = UDim2.new(0.05, 0, 0.4, 0)
+    MessageLabel.BackgroundTransparency = 1
+    MessageLabel.Text = message
+    MessageLabel.TextColor3 = Color3.fromRGB(220, 200, 255)
+    MessageLabel.Font = Enum.Font.Gotham
+    MessageLabel.TextSize = 14
+    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MessageLabel.TextWrapped = true
+    MessageLabel.Parent = Notification
+    
+    -- 入场动画
+    local ShowTween = TweenService:Create(
+        Notification,
+        TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+        {BackgroundTransparency = 0.2, Position = UDim2.new(1, -310, 1, -100)}
+    )
+    
+    -- 退场动画
+    local HideTween = TweenService:Create(
+        Notification,
+        TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+        {BackgroundTransparency = 1, Position = UDim2.new(1, -310, 1, -150)}
+    )
+    
+    -- 发光效果动画
+    local GlowTween = TweenService:Create(
+        GlowEffect,
+        TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true),
+        {ImageTransparency = 0.7}
+    )
+    
+    ShowTween:Play()
+    GlowTween:Play()
+    
+    delay(duration, function()
+        HideTween:Play()
+        HideTween.Completed:Connect(function()
+            Notification:Destroy()
+        end)
+    end)
+end
+
+-- 🖥️ 主控制面板 --
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 320, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -160, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 5, 50)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+-- 3D边框效果
+local FrameShadow = Instance.new("Frame")
+FrameShadow.Size = UDim2.new(1, 6, 1, 6)
+FrameShadow.Position = UDim2.new(0, -3, 0, -3)
+FrameShadow.BackgroundColor3 = Color3.fromRGB(80, 0, 120)
+FrameShadow.BackgroundTransparency = 0.8
+FrameShadow.BorderSizePixel = 0
+FrameShadow.ZIndex = -1
+FrameShadow.Parent = MainFrame
+
+local FrameCorner = Instance.new("UICorner")
+FrameCorner.CornerRadius = UDim.new(0, 14)
+FrameCorner.Parent = MainFrame
+
+local FrameStroke = Instance.new("UIStroke")
+FrameStroke.Color = Color3.fromRGB(180, 80, 255)
+FrameStroke.Thickness = 2
+FrameStroke.Transparency = 0.3
+FrameStroke.Parent = MainFrame
+
+-- 标题栏
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.BackgroundColor3 = Color3.fromRGB(60, 10, 90)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 14)
+TitleCorner.Parent = TitleBar
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(0, 240, 1, 0)
+Title.Position = UDim2.new(0.5, -120, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "⚡ 断桥残雪AIMLOCK ⚡"
+Title.TextColor3 = Color3.fromRGB(255, 220, 255)
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 16
+Title.Parent = TitleBar
+
+-- 内容区域
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Size = UDim2.new(1, -20, 1, -55)
+Content.Position = UDim2.new(0, 10, 0, 45)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+-- 自动布局
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = Content
+-- 精准修正的开关控件函数
+local function CreatePremiumToggle(name, text, default, callback, order)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Name = name.."Toggle"
+    ToggleFrame.Size = UDim2.new(0.92, 0, 0, 38)
+    ToggleFrame.BackgroundTransparency = 1
+    ToggleFrame.LayoutOrder = order
+    ToggleFrame.Parent = Content
+
+    -- 背景容器（确保点击区域）
+    local Background = Instance.new("Frame")
+    Background.Size = UDim2.new(1, 0, 1, 0)
+    Background.BackgroundTransparency = 1
+    Background.Parent = ToggleFrame
+
+    -- 文本标签（左对齐）
+    local ToggleLabel = Instance.new("TextLabel")
+    ToggleLabel.Name = "Label"
+    ToggleLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    ToggleLabel.Position = UDim2.new(0, 10, 0, 0)
+    ToggleLabel.BackgroundTransparency = 1
+    ToggleLabel.Text = text
+    ToggleLabel.TextColor3 = Color3.fromRGB(230, 210, 255)
+    ToggleLabel.Font = Enum.Font.GothamSemibold
+    ToggleLabel.TextSize = 14
+    ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleLabel.Parent = Background
+
+    -- 开关容器（右对齐）
+    local ToggleContainer = Instance.new("Frame")
+    ToggleContainer.Name = "SwitchContainer"
+    ToggleContainer.Size = UDim2.new(0, 62, 0, 32)
+    ToggleContainer.Position = UDim2.new(1, -15, 0.5, -16)
+    ToggleContainer.AnchorPoint = Vector2.new(1, 0.5)
+    ToggleContainer.BackgroundTransparency = 1
+    ToggleContainer.Parent = Background
+
+    -- 开关背景
+    local ToggleButton = Instance.new("Frame")
+    ToggleButton.Name = "Button"
+    ToggleButton.Size = UDim2.new(1, 0, 1, 0)
+    ToggleButton.BackgroundColor3 = default and Color3.fromRGB(100, 30, 150) or Color3.fromRGB(50, 15, 80)
+    ToggleButton.Parent = ToggleContainer
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 16) -- 圆角稍大于滑块
+    ToggleCorner.Parent = ToggleButton
+
+    -- 白色滑块（精准定位版）
+    local ToggleCircle = Instance.new("Frame")
+    ToggleCircle.Name = "Circle"
+    ToggleCircle.Size = UDim2.new(0, 26, 0, 26)
+    
+    -- 关键修正：使用精确的锚点计算
+    local circleOffset = 3 -- 滑块与边框的间隙
+    ToggleCircle.Position = default 
+        and UDim2.new(1, -circleOffset-26, 0.5, -13) -- 右端位置
+        or UDim2.new(0, circleOffset, 0.5, -13) -- 左端位置
+        
+    ToggleCircle.AnchorPoint = Vector2.new(0, 0.5) -- 关键修正点
+    ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleCircle.Parent = ToggleButton
+
+    local CircleCorner = Instance.new("UICorner")
+    CircleCorner.CornerRadius = UDim.new(0, 13)
+    CircleCorner.Parent = ToggleCircle
+
+    -- 点击区域（覆盖整个开关区域）
+    local Hitbox = Instance.new("TextButton")
+    Hitbox.Size = UDim2.new(1, 0, 1, 0)
+    Hitbox.BackgroundTransparency = 1
+    Hitbox.Text = ""
+    Hitbox.Parent = ToggleContainer
+
+    Hitbox.MouseButton1Click:Connect(function()
+        default = not default
+        callback(default)
+        
+        -- 精确的动画路径计算
+        local targetPosition = default 
+            and UDim2.new(1, -circleOffset-26, 0.5, -13) 
+            or UDim2.new(0, circleOffset, 0.5, -13)
+        
+        local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(ToggleCircle, tweenInfo, {
+            Position = targetPosition
+        })
+        
+        local colorTween = TweenService:Create(ToggleButton, tweenInfo, {
+            BackgroundColor3 = default and Color3.fromRGB(100, 30, 150) or Color3.fromRGB(50, 15, 80)
+        })
+        
+        tween:Play()
+        colorTween:Play()
+    end)
+
+    return ToggleFrame
+end
+
+
+
+-- 创建豪华滑块控件
+local function CreatePremiumSlider(name, text, min, max, default, callback, order)
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Name = name.."Slider"
+    SliderFrame.Size = UDim2.new(0.95, 0, 0, 60)
+    SliderFrame.BackgroundTransparency = 1
+    SliderFrame.LayoutOrder = order
+    SliderFrame.Parent = Content
+    
+    local SliderLabel = Instance.new("TextLabel")
+    SliderLabel.Name = "Label"
+    SliderLabel.Size = UDim2.new(1, 0, 0, 20)
+    SliderLabel.BackgroundTransparency = 1
+    SliderLabel.Text = text..": "..default
+    SliderLabel.TextColor3 = Color3.fromRGB(230, 210, 255)
+    SliderLabel.Font = Enum.Font.GothamSemibold
+    SliderLabel.TextSize = 14
+    SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    SliderLabel.Parent = SliderFrame
+    
+    local SliderContainer = Instance.new("Frame")
+    SliderContainer.Size = UDim2.new(1, 0, 0, 20)
+    SliderContainer.Position = UDim2.new(0, 0, 0, 30)
+    SliderContainer.BackgroundTransparency = 1
+    SliderContainer.Parent = SliderFrame
+    
+    local SliderTrack = Instance.new("Frame")
+    SliderTrack.Name = "Track"
+    SliderTrack.Size = UDim2.new(1, 0, 0, 6)
+    SliderTrack.Position = UDim2.new(0, 0, 0.5, -3)
+    SliderTrack.BackgroundColor3 = Color3.fromRGB(50, 15, 80)
+    SliderTrack.Parent = SliderContainer
+    
+    local TrackCorner = Instance.new("UICorner")
+    TrackCorner.CornerRadius = UDim.new(0, 3)
+    TrackCorner.Parent = SliderTrack
+    
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Name = "Fill"
+    SliderFill.Size = UDim2.new((default - min)/(max - min), 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(120, 40, 180)
+    SliderFill.Parent = SliderTrack
+    
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(0, 3)
+    FillCorner.Parent = SliderFill
+    
+    local FillGradient = Instance.new("UIGradient")
+    FillGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 80, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(140, 40, 220))
+    }
+    FillGradient.Parent = SliderFill
+    
+    local SliderButton = Instance.new("Frame")
+    SliderButton.Name = "Button"
+    SliderButton.Size = UDim2.new(0, 18, 0, 18)
+    SliderButton.Position = UDim2.new((default - min)/(max - min), -9, 0.5, -9)
+    SliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SliderButton.Parent = SliderContainer
+    
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 9)
+    ButtonCorner.Parent = SliderButton
+    
+    local ButtonGradient = Instance.new("UIGradient")
+    ButtonGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(250, 200, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 150, 255))
+    }
+    ButtonGradient.Rotation = 45
+    ButtonGradient.Parent = SliderButton
+    
+    local ButtonShadow = Instance.new("ImageLabel")
+    ButtonShadow.Size = UDim2.new(1, 6, 1, 6)
+    ButtonShadow.Position = UDim2.new(0.5, -3, 0.5, -3)
+    ButtonShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+    ButtonShadow.BackgroundTransparency = 1
+    ButtonShadow.Image = "rbxassetid://5028857084"
+    ButtonShadow.ImageColor3 = Color3.fromRGB(100, 0, 150)
+    ButtonShadow.ScaleType = Enum.ScaleType.Slice
+    ButtonShadow.SliceCenter = Rect.new(100, 100, 100, 100)
+    ButtonShadow.Parent = SliderButton
+    
+    local dragging = false
+    
+    local function updateValue(input)
+        local x = (input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X
+        x = math.clamp(x, 0, 1)
+        local value = math.floor(min + (max - min) * x)
+        SliderFill.Size = UDim2.new(x, 0, 1, 0)
+        SliderButton.Position = UDim2.new(x, -9, 0.5, -9)
+        SliderLabel.Text = text..": "..value
+        callback(value)
+    end
+    
+    SliderButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UIS.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateValue(input)
+        end
+    end)
+    
+    return SliderFrame
+end
+
+-- 创建控件
+CreatePremiumToggle("Aimlock", "自瞄开关", true, function(value)
+    getgenv().AimlockEnabled = value
+    ShowCinematicNotification("断桥残雪-系统提示", value and "自瞄功能已启用" or "自瞄功能已禁用", 2)
+end, 1)
+
+CreatePremiumToggle("FOV", "显示瞄准FOV", true, function(value)
+    Settings.FOVVisible = value
+    if circle then
+        circle.Visible = value and Settings.DrawFOV
+    end
+end, 2)
+
+CreatePremiumSlider("Radius", "自瞄距离", 20, 200, Settings.AimRadius, function(value)
+    Settings.AimRadius = value
+    if circle then
+        circle.Radius = value
+    end
+end, 3)
+
+CreatePremiumSlider("Speed", "自瞄速度", 0.5, 5.0, Settings.Speed.Base, function(value)
+    Settings.Speed.Base = value
+end, 4)
+
+
+-- 🖱️ 窗口拖动系统 --
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- ⌨️ 快捷键系统 --
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.G then
+            MainFrame.Visible = not MainFrame.Visible
+            ShowCinematicNotification("断桥残雪-控制台", MainFrame.Visible and "控制台已显示" or "控制台已隐藏", 2)
+        elseif input.KeyCode == Enum.KeyCode.H then
+            getgenv().AimlockEnabled = not getgenv().AimlockEnabled
+            ShowCinematicNotification("快速切换", getgenv().AimlockEnabled and "自瞄已启用" or "自瞄已禁用", 1.5)
+        end
+    end
+end)
+
+-- 🎯 智能瞄准系统 --
+local function GetOptimalSpeed(distance)
+    local influence = math.clamp((distance - 30) / 100, 0, 1)
+    local speed = Settings.Speed.Base
+    speed = distance < 50 and (speed + Settings.Speed.CloseBoost * (1 - influence)) 
+                          or (speed - Settings.Speed.FarReduce * influence)
+    return math.clamp(speed, Settings.Speed.Min, Settings.Speed.Max)
+end
+
+local function GetSmartPrediction(targetPart, distance)
+    local ratio = math.clamp(distance / Settings.Prediction.DistanceFactor, 0, 0.5)
+    return math.max(Settings.Prediction.Base * (1 - ratio), Settings.Prediction.Min)
+end
+
+local function FindOptimalTarget()
+    local bestTarget, minDist = nil, Settings.AimRadius + 1
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Client and player.Character then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            local head = player.Character:FindFirstChild("Head")
+            
+            if humanoid and humanoid.Health > 0 and head then
+                local isEnemy = not Settings.TeamCheck or player.Team ~= Client.Team
+                if isEnemy then
+                    local dist = (head.Position - Camera.CFrame.Position).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        bestTarget = player
+                    end
+                end
+            end
+        end
+    end
+    
+    return bestTarget, minDist
+end
+
+-- 🔄 输入检测 --
+UIS.InputBegan:Connect(function(input)
+    if input.UserInputType == Settings.AimlockKey and getgenv().AimlockEnabled ~= false then
+        local target, dist = FindOptimalTarget()
+        if target then
+            getgenv().LockedTarget = target
+            if Settings.DrawFOV and Settings.FOVVisible then
+                ShowCinematicNotification("断桥残雪-目标锁定", "已锁定: "..target.Name.."\n距离: "..math.floor(dist).."米", 1.5)
+            end
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Settings.AimlockKey then
+        getgenv().LockedTarget = nil
+    end
+end)
+
+-- 🔄 主循环 --
+RS.RenderStepped:Connect(function()
+    if getgenv().AimlockEnabled == false then return end
+    
+    local target = getgenv().LockedTarget
+    if not target or not target.Character then return end
+    
+    -- 智能锁头系统
+    if Settings.CheckIfJumped then
+        local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
+        Settings.AimPart = (humanoid and humanoid.FloorMaterial == Enum.Material.Air) and "Head" or Settings.OldAimPart
+    end
+
+    local part = target.Character:FindFirstChild(Settings.AimPart)
+    if not part then return end
+    
+    local distance = (part.Position - Camera.CFrame.Position).Magnitude
+    local prediction = GetSmartPrediction(part, distance)
+    local optimalSpeed = GetOptimalSpeed(distance)
+    local targetPos = part.Position + (part.Velocity / prediction)
+    
+    local screenPos = Camera:WorldToScreenPoint(targetPos)
+    if screenPos.Z > 0 then
+        mousemoverel(
+            (screenPos.X - Mouse.X) * optimalSpeed,
+            (screenPos.Y - Mouse.Y) * optimalSpeed
+        )
+    end
+end)
+
+-- 🌈 可视化FOV --
+local circle = Drawing.new("Circle")
+circle.Visible = Settings.DrawFOV and Settings.FOVVisible
+circle.Radius = Settings.AimRadius
+circle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+circle.Color = Color3.fromRGB(180, 80, 255)
+circle.Transparency = 0.7
+circle.Thickness = 2
+circle.Filled = false
+
+RS.RenderStepped:Connect(function()
+    if circle then
+        circle.Position = Vector2.new(Mouse.X, Mouse.Y)
+        circle.Visible = Settings.DrawFOV and Settings.FOVVisible and getgenv().AimlockEnabled ~= false
+    end
+end)
+
+-- 🚀 初始化完成 --
+ShowCinematicNotification("断桥残雪-系统启动", "断桥残雪自瞄\nG键控制显示\关闭", 3)
+
